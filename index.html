@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Infinity Piercing - Dashboard CX</title>
+<style>
+:root{--primary:#6B3FA0;--primary-light:#8B5CF6;--bg:#F3F4F6;--card:#FFF;--text:#1F2937;--text-light:#6B7280;--success:#10B981;--warning:#F59E0B;--danger:#EF4444}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);padding-bottom:40px}
+header{background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;padding:2rem;text-align:center;position:relative}
+.badge{position:absolute;top:.75rem;right:.75rem;padding:.4rem .8rem;border-radius:20px;font-size:.7rem;font-weight:700}
+.bg-green{background:rgba(16,185,129,.25)}.bg-yellow{background:rgba(245,158,11,.25)}.bg-red{background:rgba(239,68,68,.25)}
+.container{max-width:1200px;margin:0 auto;padding:0 1rem}
+.controls{background:var(--card);margin-top:-1.5rem;padding:.8rem;border-radius:12px;display:flex;flex-wrap:wrap;gap:.8rem;align-items:center;box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
+.tabs{display:flex;gap:.3rem;background:#E5E7EB;padding:.25rem;border-radius:8px}
+.tab-btn{padding:.4rem .8rem;border:none;background:0 0;cursor:pointer;border-radius:6px;font-weight:600;font-size:.8rem;color:var(--text-light)}
+.tab-btn.active{background:var(--card);color:var(--primary);box-shadow:0 2px 4px rgba(0,0,0,.1)}
+select{padding:.35rem;border-radius:6px;border:1px solid #DDD;font-weight:600;font-size:.8rem;background:white}
+.btn{padding:.4rem .8rem;border-radius:6px;border:none;cursor:pointer;font-weight:600;font-size:.8rem;display:flex;align-items:center;gap:.4rem}
+.btn-primary{background:var(--primary);color:#fff}.btn-secondary{background:#E5E7EB;color:var(--text)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-top:1.5rem}
+.card{background:var(--card);padding:1.2rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.kpi-card{text-align:center}
+.kpi-label{font-size:.7rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem}
+.kpi-value{font-size:2rem;font-weight:800}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem}
+canvas{width:100%!important;height:200px!important}
+.section-title{margin:1.5rem 0 .8rem;font-size:1.1rem;font-weight:700;color:var(--primary)}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;font-size:.8rem}
+th{background:#F9FAFB;padding:.6rem;text-align:left;font-size:.65rem;text-transform:uppercase;color:var(--text-light);border-bottom:1px solid #E5E7EB}
+td{padding:.6rem;border-bottom:1px solid #F3F4F6}
+.row-promotor{background:#ECFDF5}.row-neutro{background:#FFFBEB}.row-detrator{background:#FEF2F2}
+.insights-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.insight-card{padding:.8rem;border-radius:8px;background:#F9FAFB;border-left:3px solid var(--primary)}
+.insight-card h4{font-size:.85rem;margin-bottom:.3rem}.insight-card p{font-size:.75rem;color:var(--text-light)}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:.4rem}
+.tag{padding:.2rem .6rem;border-radius:20px;font-size:.7rem;font-weight:600}
+.tag-pos{background:#D1FAE5;color:#065F46}.tag-neg{background:#FEE2E2;color:#991B1B}
+@media(max-width:768px){.charts-grid,.insights-grid{grid-template-columns:1fr}.controls{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body>
+<header>
+<div class="badge bg-yellow" id="status">⏳ Carregando...</div>
+<h1>INFINITY PIERCING</h1>
+<p>Satisfação que transcende — Dashboard de Inteligência CX</p>
+</header>
+<div class="container">
+<div class="controls">
+<div class="tabs">
+<button class="tab-btn" onclick="filtrar('dia',this)">Diário</button>
+<button class="tab-btn" onclick="filtrar('semana',this)">Semanal</button>
+<button class="tab-btn" onclick="filtrar('mes',this)">Mensal</button>
+<button class="tab-btn active" onclick="filtrar('tudo',this)">Tudo</button>
+</div>
+<div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+<span style="font-size:.7rem;font-weight:600">De:</span><input type="date" id="dInicio" style="padding:.3rem;border-radius:6px;border:1px solid #DDD">
+<span style="font-size:.7rem;font-weight:600">Até:</span><input type="date" id="dFim" style="padding:.3rem;border-radius:6px;border:1px solid #DDD">
+<button class="btn btn-primary" onclick="filtrarPeriodo()">Filtrar</button>
+<label style="font-size:.7rem;font-weight:600">Analista:</label>
+<select id="fAnalista" onchange="aplicar()"><option value="todos">Todos</option><option value="Larissa">Larissa</option><option value="Vinicius">Vinicius</option><option value="Andrei">Andrei</option></select>
+<button class="btn btn-secondary" onclick="exportar()">📥 Exportar</button>
+</div>
+</div>
+<div class="kpi-grid">
+<div class="card kpi-card"><div class="kpi-label">NPS</div><div class="kpi-value" id="nps">--</div></div>
+<div class="card kpi-card"><div class="kpi-label">CSAT</div><div class="kpi-value" id="csat">--</div></div>
+<div class="card kpi-card"><div class="kpi-label">Média NPS</div><div class="kpi-value" id="media">--</div></div>
+<div class="card kpi-card"><div class="kpi-label">Respostas</div><div class="kpi-value" id="total">--</div></div>
+</div>
+<div class="charts-grid">
+<div class="card"><h3 style="margin-bottom:.5rem;font-size:.85rem">Distribuição NPS</h3><canvas id="gNps"></canvas></div>
+<div class="card"><h3 style="margin-bottom:.5rem;font-size:.85rem">Distribuição CSAT</h3><canvas id="gCsat"></canvas></div>
+</div>
+<div class="charts-grid">
+<div class="card"><h3 style="margin-bottom:.5rem;font-size:.85rem">👥 Especialistas</h3><div><table><thead><tr><th>Nome</th><th>Atend.</th><th>NPS</th><th>CSAT</th></tr></thead><tbody id="tEsp"></tbody></table></div></div>
+<div class="card"><h3 style="margin-bottom:.5rem;font-size:.85rem">🔍 Palavras</h3><div class="tag-cloud" id="nuvem"></div></div>
+</div>
+<div class="insights-grid">
+<div class="insight-card"><h4>🟣 NPS</h4><p id="iNps">Carregando...</p></div>
+<div class="insight-card" style="border-left-color:#F59E0B"><h4>🟡 CSAT</h4><p id="iCsat">Carregando...</p></div>
+</div>
+<div class="section-title">💬 Comentários</div>
+<div style="overflow-x:auto">
+<table><thead><tr><th>Data</th><th>Perfil</th><th>Analista</th><th>NPS</th><th>CSAT</th><th>Motivo / Comentário</th></tr></thead><tbody id="tCom"></tbody></table>
+</div>
+</div>
+<script>
+var SCRIPT_URL='https://script.google.com/macros/s/AKfycby8vCGgwNkL-4JpJTc6fXaQi14TNfDcyiDW6MEyNtc-2MPGCTOETyqmJeQUF8sSXlTrHw/exec';
+var CACHE_KEY='infinity_data';
+var DADOS=[],dadosFiltrados=[],filtro='tudo';
+
+function parseD(s){
+if(!s||s.length&lt;6)return new Date();
+var p=s.split(' ')[0].split('/');
+return new Date(Number(p[2]),Number(p[1])-1,Number(p[0]));
+}
+
+function st(msg,cor){var e=document.getElementById('status');e.textContent=msg;e.className='badge bg-'+cor}
+
+function carregar(){
+st('⏳ Carregando...','yellow');
+try{var c=localStorage.getItem(CACHE_KEY);if(c){DADOS=JSON.parse(c);if(DADOS.length>0){st('📦 Cache ('+DADOS.length+')','yellow');aplicar()}}}catch(e){}
+fetch(SCRIPT_URL).then(function(r){return r.json()}).then(function(d){
+if(d&&d.length>0){
+var dados=d;
+for(var i=0;i<dados.length;i++){
+var x=dados[i];x.n=Number(x.n)||0;x.c=Number(x.c)||5;x.d=x.d||'';x.p=x.p||'';x.e=x.e||'';x.m=x.m||'';x.t=x.t||'';
+}
+DADOS=dados;
+try{localStorage.setItem(CACHE_KEY,JSON.stringify(dados))}catch(e){}
+st('✅ Ao vivo ('+dados.length+')','green');
+aplicar();
+}else{st('⚠️ Sem dados','red')}
+}).catch(function(e){st('⚠️ Erro no servidor','red')});
+}
+
+function filtrar(t,b){
+filtro=t;
+document.querySelectorAll('.tab-btn').forEach(function(x){x.classList.remove('active')});
+b.classList.add('active');
+aplicar();
+}
+
+function filtrarPeriodo(){filtro='custom';aplicar()}
+
+function aplicar(){
+var arr=[];
+for(var i=0;i<DADOS.length;i++)arr.push(DADOS[i]);
+var ana=document.getElementById('fAnalista').value;
+if(ana!=='todos')arr=arr.filter(function(x){return x.e===ana});
+var di=document.getElementById('dInicio').value,df=document.getElementById('dFim').value;
+
+if(filtro==='dia'){
+var d=new Date();
+var dd=String(d.getDate()).padStart(2,'0');
+var mm=String(d.getMonth()+1).padStart(2,'0');
+var yyyy=d.getFullYear();
+var hojeStr=dd+'/'+mm+'/'+yyyy;
+arr=arr.filter(function(x){return x.d===hojeStr});
+}else if(filtro==='semana'){
+var c=new Date();c.setDate(c.getDate()-7);c.setHours(0,0,0,0);
+arr=arr.filter(function(x){return parseD(x.d)>=c});
+}else if(filtro==='mes'){
+var c=new Date();c.setDate(c.getDate()-30);c.setHours(0,0,0,0);
+arr=arr.filter(function(x){return parseD(x.d)>=c});
+}else if(filtro==='custom'){
+if(di){var c=new Date(di+'T00:00:00');arr=arr.filter(function(x){return parseD(x.d)>=c})}
+if(df){var c2=new Date(df+'T23:59:59');arr=arr.filter(function(x){return parseD(x.d)&lt;=c2})}
+}
+dadosFiltrados=arr;render();
+}
+
+function render(){
+var d=dadosFiltrados,t=d.length;
+if(t===0){document.getElementById('nps').innerText='--';document.getElementById('csat').innerText='--';document.getElementById('media').innerText='--';document.getElementById('total').innerText='0';return}
+var pro=0,det=0,sN=0,c4=0;
+for(var i=0;i<t;i++){var x=d[i];if(x.n>=9)pro++;else if(x.n&lt;=6)det++;sN+=x.n;if(x.c>=4)c4++}
+var nps=((pro-det)/t)*100;
+document.getElementById('nps').innerText=nps.toFixed(1)+'%';
+document.getElementById('nps').style.color=nps>70?'#10B981':(nps>50?'#F59E0B':'#EF4444');
+document.getElementById('csat').innerText=(c4/t*100).toFixed(1)+'%';
+document.getElementById('media').innerText=(sN/t).toFixed(1);
+document.getElementById('total').innerText=t;
+graf('gNps',[{l:'Promotores',v:pro,c:'#10B981'},{l:'Neutros',v:t-pro-det,c:'#F59E0B'},{l:'Detratores',v:det,c:'#EF4444'}]);
+var cs=[0,0,0,0,0];for(var i=0;i<t;i++){var ci=d[i].c;if(ci>=1&&ci&lt;=5)cs[ci-1]++}
+graf('gCsat',cs.map(function(v,i){return{l:(i+1)+'★',v:v,c:i+1>=4?'#10B981':'#D1D5DB'}}));
+esp(d);insights();com(d);
+}
+
+function graf(id,dat){
+var c=document.getElementById(id);if(!c)return;
+var ctx=c.getContext('2d'),w=c.width=c.offsetWidth||300,h=c.height=200;ctx.clearRect(0,0,w,h);
+var mx=0;for(var i=0;i<dat.length;i++)if(dat[i].v>mx)mx=dat[i].v;if(mx===0)return;
+var bw=Math.min(60,(w/dat.length)*0.6),sp=(w-dat.length*bw)/(dat.length+1);
+for(var i=0;i<dat.length;i++){var d=dat[i],bh=Math.max(3,(d.v/mx)*(h-50)),x=sp+i*(bw+sp),y=h-bh-25;ctx.fillStyle=d.c;ctx.fillRect(x,y,bw,bh);ctx.fillStyle='#1F2937';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(d.v,x+bw/2,y-6);ctx.fillText(d.l,x+bw/2,h-8);}
+}
+
+function esp(d){
+var m={};for(var i=0;i<d.length;i++){var e=d[i].e||'Nao informado';if(!m[e])m[e]={q:0,n:0,c:0};m[e].q++;m[e].n+=d[i].n;m[e].c+=d[i].c}
+var ord=Object.keys(m).sort(function(a,b){return m[b].n/m[b].q-m[a].n/m[a].q});
+var html='';for(var i=0;i<ord.length;i++){var o=m[ord[i]];html+='<tr><td><strong>'+ord[i]+'</strong></td><td>'+o.q+'</td><td>'+(o.n/o.q).toFixed(1)+'</td><td>'+(o.c/o.q).toFixed(1)+'</td></tr>'}
+document.getElementById('tEsp').innerHTML=html;
+}
+
+function insights(){
+document.getElementById('iNps').innerHTML='<strong>✅ Forcas:</strong> Atendimento, qualidade, variedade, preco.<br><strong>⚠️ Riscos:</strong> Prazo de entrega e erros em pedidos.';
+document.getElementById('iCsat').innerHTML='<strong>✅ Forcas:</strong> Atendimento nota 5, suporte, resolucao.<br><strong>⚠️ Riscos:</strong> Notas baixas = erro no pedido.';
+document.getElementById('nuvem').innerHTML='<span class="tag tag-pos">Atendimento</span><span class="tag tag-pos">Qualidade</span><span class="tag tag-pos">Preco</span><span class="tag tag-pos">Variedade</span><span class="tag tag-pos">Rapidez</span><span class="tag tag-neg">Demora</span><span class="tag tag-neg">Entrega</span><span class="tag tag-neg">Estoque</span><span class="tag tag-neg">Erro</span><span class="tag tag-neg">Postagem</span>';
+}
+
+function com(d){
+var rev=[];
+for(var i=d.length-1;i>=0;i--)rev.push(d[i]);
+var html='',max=Math.min(rev.length,200);
+for(var i=0;i<max;i++){var x=rev[i],t='row-neutro';if(x.n>=9)t='row-promotor';if(x.n&lt;=6)t='row-detrator';html+='<tr class="'+t+'"><td>'+x.d+'</td><td>'+x.p+'</td><td>'+(x.e||'-')+'</td><td><strong>'+x.n+'</strong></td><td>'+x.c+'</td><td><strong>'+x.m+'</strong><br><em>'+(x.t||'')+'</em></td></tr>'}
+document.getElementById('tCom').innerHTML=html;
+}
+
+function exportar(){var n=document.getElementById('nps').innerText,t=document.getElementById('total').innerText;navigator.clipboard.writeText('INFINITY PIERCING\nNPS: '+n+'\nRespostas: '+t).then(function(){alert('Copiado!')})}
+
+window.onload=carregar;
+</script>
+</body>
+</html>
