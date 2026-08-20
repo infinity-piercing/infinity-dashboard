@@ -21,6 +21,8 @@ header h1{font-size:1.8rem;}header p{opacity:.92;margin-top:.3rem;font-size:.95r
 .btn{padding:.6rem 1.1rem;border-radius:10px;border:none;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;}
 .btn-primary{background:var(--primary);color:#fff;}.btn-primary:hover{background:var(--primary-dark);}
 .btn-secondary{background:var(--border);color:var(--primary-dark);}
+.btn-clear{background:#FEE2E2;color:#991B1B;}
+.btn-clear:hover{background:#FECACA;}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1.3rem;margin-top:1.8rem;}
 .card{background:var(--card);padding:1.4rem;border-radius:14px;box-shadow:0 1px 4px rgba(27,77,62,.08);border:1px solid var(--border);}
 .kpi-card{text-align:center;position:relative;overflow:hidden;}
@@ -72,6 +74,7 @@ input,select{padding:.45rem .7rem;border-radius:8px;border:1px solid var(--borde
     <div class="filtro-linha">
       <span style="font-size:.8rem;font-weight:600;">Analista:</span>
       <select id="analyst-filter" onchange="render()"><option value="all">Todos</option></select>
+      <button class="btn btn-clear" onclick="clearFilters()">✕ Limpar filtro</button>
       <button class="btn btn-primary" onclick="updateData()">🔄 Atualizar</button>
       <button class="btn btn-secondary" onclick="exportReport()">📥 Exportar</button>
     </div>
@@ -109,6 +112,16 @@ function toNum(v){if(v===null||v===undefined||v==='')return null;const n=Number(
 function parseData(v){if(v===null||v===undefined||v==='')return null;if(typeof v==='number'){const d=new Date(Math.round((v-25569)*86400000));return isNaN(d.getTime())?null:d;}const s=String(v).trim();const d=new Date(s);if(!isNaN(d.getTime()))return d;const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);if(m){let a=parseInt(m[3],10);if(a<100)a+=2000;const dt=new Date(a,parseInt(m[2],10)-1,parseInt(m[1],10),parseInt(m[4]||0,10),parseInt(m[5]||0,10),parseInt(m[6]||0,10));return isNaN(dt.getTime())?null:dt;}return null;}
 function normalizeRows(raw){const rows=[];raw.forEach(function(r){if(!r)return;const nps=toNum(r.nps);const csat=toNum(r.csat);if(nps===null&&csat===null)return;rows.push({data:parseData(r.data),email:String(r.email||'').trim(),perfil:String(r.perfil||'').trim()||'Não informado',nps:nps,motivo:String(r.motivo||'').trim(),especialista:String(r.especialista||'').trim()||'Não informado',csat:csat,comentario:String(r.comentario||'').trim()});});return rows;}
 function setFilter(p,btn){currentPeriod=p;document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');render();}
+function clearFilters(){
+  currentPeriod='all';
+  currentAnalyst='all';
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelector('.tab-btn[onclick*="\'all\'"]').classList.add('active');
+  document.getElementById('analyst-filter').value='all';
+  document.getElementById('date-from').value='';
+  document.getElementById('date-to').value='';
+  render();
+}
 function getFilteredRows(){let rows=allRows.slice();const now=new Date();if(currentPeriod==='day'){const today=now.toDateString();rows=rows.filter(function(r){return r.data&&r.data.toDateString()===today;});}else if(currentPeriod==='week'){const lim=new Date(now.getTime()-7*86400000);rows=rows.filter(function(r){return r.data&&r.data>=lim;});}else if(currentPeriod==='month'){const lim=new Date(now.getTime()-30*86400000);rows=rows.filter(function(r){return r.data&&r.data>=lim;});}const from=document.getElementById('date-from').value;const to=document.getElementById('date-to').value;if(from){const f=new Date(from+'T00:00:00');rows=rows.filter(function(r){return r.data&&r.data>=f;});}if(to){const t=new Date(to+'T23:59:59');rows=rows.filter(function(r){return r.data&&r.data<=t;});}if(currentAnalyst!=='all'){rows=rows.filter(function(r){return r.especialista===currentAnalyst;});}return rows;}
 function calcMetrics(rows){const n=rows.filter(function(r){return r.nps!==null;}).map(function(r){return r.nps;});const c=rows.filter(function(r){return r.csat!==null;}).map(function(r){return r.csat;});const prom=n.filter(function(v){return v>=9;}).length;const neu=n.filter(function(v){return v>=7&&v<=8;}).length;const det=n.filter(function(v){return v<=6;}).length;const tn=n.length;return{npsPercent:tn>0?((prom-det)/tn)*100:null,csat:c.length>0?(c.filter(function(v){return v>=4;}).length/c.length)*100:null,avgNps:tn>0?n.reduce(function(a,b){return a+b;},0)/tn:null,total:rows.length,prom:prom,neu:neu,det:det,totalNps:tn,csatValues:c};}
 function render(){const rows=getFilteredRows();const m=calcMetrics(rows);document.getElementById('kpi-nps').textContent=m.npsPercent!==null?m.npsPercent.toFixed(1)+'%':'--';document.getElementById('kpi-csat').textContent=m.csat!==null?m.csat.toFixed(1)+'%':'--';document.getElementById('kpi-avg').textContent=m.avgNps!==null?m.avgNps.toFixed(1):'--';document.getElementById('kpi-total').textContent=m.total;renderCharts(m);renderSpecialists(rows);renderWords(rows);renderInsights(rows,m);renderComments(rows);}
@@ -118,17 +131,42 @@ function renderCharts(m){
   chartNps=new Chart(document.getElementById('chart-nps'),{
     type:'bar',
     data:{labels:['Promotores','Neutros','Detratores'],datasets:[{label:'Respostas',data:[m.prom,m.neu,m.det],backgroundColor:['#10B981','#F59E0B','#EF4444'],borderRadius:6}]},
-    options:{responsive:true,plugins:{legend:{display:false},datalabels:{color:'#123528',font:{weight:'bold',size:14},anchor:'end',align:'end',formatter:function(v){return v>0?v:'';}}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}
+    options:{responsive:true,plugins:{legend:{display:false},datalabels:{color:'#123528',font:{weight:'600',size:11},anchor:'end',align:'end',formatter:function(v){return v>0?v:'';}}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}
   });
   const dist=[0,0,0,0,0];
   m.csatValues.forEach(function(v){if(v>=1&&v<=5)dist[v-1]++;});
   chartCsat=new Chart(document.getElementById('chart-csat'),{
     type:'bar',
     data:{labels:['1 estrela','2 estrelas','3 estrelas','4 estrelas','5 estrelas'],datasets:[{label:'Respostas',data:dist,backgroundColor:['#EF4444','#F97316','#F59E0B','#84CC16','#10B981'],borderRadius:6}]},
-    options:{responsive:true,plugins:{legend:{display:false},datalabels:{color:'#123528',font:{weight:'bold',size:14},anchor:'end',align:'end',formatter:function(v){return v>0?v:'';}}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}
+    options:{responsive:true,plugins:{legend:{display:false},datalabels:{color:'#123528',font:{weight:'600',size:11},anchor:'end',align:'end',formatter:function(v){return v>0?v:'';}}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}
   });
 }
-function renderSpecialists(rows){const map={};rows.forEach(function(r){if(!map[r.especialista])map[r.especialista]={nps:[],csat:[],count:0};map[r.especialista].count++;if(r.nps!==null)map[r.especialista].nps.push(r.nps);if(r.csat!==null)map[r.especialista].csat.push(r.csat);});const tbody=document.querySelector('#table-specialists tbody');tbody.innerHTML='';Object.keys(map).sort(function(a,b){return map[b].count-map[a].count;}).forEach(function(name){const s=map[name];const avgNps=s.nps.length?s.nps.reduce(function(a,b){return a+b;},0)/s.nps.length:null;const avgCsat=s.csat.length?s.csat.reduce(function(a,b){return a+b;},0)/s.csat.length:null;let status,cls;if(avgNps===null){status='Sem NPS';cls='status-atencao';}else if(avgNps>=9){status='Excelente';cls='status-ok';}else if(avgNps>=7){status='Bom';cls='status-atencao';}else{status='Atenção';cls='status-critico';}const tr=document.createElement('tr');tr.innerHTML='<td><strong>'+name+'</strong></td><td>'+s.count+'</td><td>'+(avgNps!==null?avgNps.toFixed(1):'--')+'</td><td>'+(avgCsat!==null?avgCsat.toFixed(1):'--')+'</td><td class="'+cls+'">'+status+'</td>';tbody.appendChild(tr);});}
+function renderSpecialists(rows){
+  const map={};
+  rows.forEach(function(r){
+    if(!map[r.especialista])map[r.especialista]={nps:[],csat:[],count:0};
+    map[r.especialista].count++;
+    if(r.nps!==null)map[r.especialista].nps.push(r.nps);
+    if(r.csat!==null)map[r.especialista].csat.push(r.csat);
+  });
+  const tbody=document.querySelector('#table-specialists tbody');
+  tbody.innerHTML='';
+  const names=Object.keys(map).sort(function(a,b){return map[b].count-map[a].count;});
+  if(names.length===0){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-light);">Sem dados no período.</td></tr>';return;}
+  names.forEach(function(name){
+    const s=map[name];
+    const avgNps=s.nps.length?s.nps.reduce(function(a,b){return a+b;},0)/s.nps.length:null;
+    const avgCsat=s.csat.length?s.csat.reduce(function(a,b){return a+b;},0)/s.csat.length:null;
+    let status,cls;
+    if(avgNps===null){status='Sem NPS';cls='status-atencao';}
+    else if(avgNps>=9){status='Excelente';cls='status-ok';}
+    else if(avgNps>=7){status='Bom';cls='status-atencao';}
+    else{status='Atenção';cls='status-critico';}
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td><strong>'+name+'</strong></td><td>'+s.count+'</td><td>'+(avgNps!==null?avgNps.toFixed(1):'--')+'</td><td>'+(avgCsat!==null?avgCsat.toFixed(1):'--')+'</td><td class="'+cls+'">'+status+'</td>';
+    tbody.appendChild(tr);
+  });
+}
 function topWords(rows,cond,topN){const counts={};rows.forEach(function(r){if(!cond(r))return;let texto=((r.motivo||'')+' '+(r.comentario||'')).toLowerCase();try{texto=texto.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(e){}texto.split(/[^a-z0-9]+/).forEach(function(w){if(w.length<3)return;if(STOPWORDS.indexOf(w)!==-1)return;counts[w]=(counts[w]||0)+1;});});return Object.keys(counts).map(function(w){return{word:w,count:counts[w]};}).sort(function(a,b){return b.count-a.count;}).slice(0,topN);}
 function fillWords(id,list,neg){const el=document.getElementById(id);el.innerHTML='';if(!list.length){el.innerHTML='<span class="vazio">Sem dados no período.</span>';return;}list.forEach(function(it){const span=document.createElement('span');span.className='word-chip'+(neg?' neg':'');span.textContent=it.word+' ('+it.count+')';el.appendChild(span);});}
 function renderWords(rows){fillWords('words-promotores',topWords(rows,function(r){return r.nps!==null&&r.nps>=9;},12),false);fillWords('words-detratores',topWords(rows,function(r){return r.nps!==null&&r.nps<=6;},12),true);}
